@@ -1,46 +1,81 @@
 import { createContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // Check for token/user in localStorage on mount
+  // On mount: if a token exists, validate it by fetching the current user.
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        setUser(null);
+    let isMounted = true;
+
+    const loadUser = async () => {
+      const storedToken = localStorage.getItem('token');
+      if (!storedToken) {
+        if (isMounted) setLoading(false);
+        return;
       }
-    }
-    setLoading(false);
+
+      try {
+        const { data } = await api.get('/auth/me');
+        if (isMounted) {
+          setUser(data.user);
+          setToken(storedToken);
+        }
+      } catch {
+        // Token invalid/expired: clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        if (isMounted) {
+          setUser(null);
+          setToken(null);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadUser();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Placeholder: login
+  // Persist auth state and update context
+  const persistAuth = (newToken, newUser) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    setToken(newToken);
+    setUser(newUser);
+  };
+
+  // Login: call API, store token, set user
   const login = async (credentials) => {
-    // TODO: call API and set token/user
-    console.log('login placeholder', credentials);
+    const { data } = await api.post('/auth/login', credentials);
+    persistAuth(data.token, data.user);
+    return data.user;
   };
 
-  // Placeholder: register
-  const register = async (data) => {
-    // TODO: call API and set token/user
-    console.log('register placeholder', data);
+  // Register: call API, store token, set user
+  const register = async (payload) => {
+    const { data } = await api.post('/auth/register', payload);
+    persistAuth(data.token, data.user);
+    return data.user;
   };
 
-  // Placeholder: logout
+  // Logout: clear token and user
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    setToken(null);
     setUser(null);
   };
 
-  const value = { user, setUser, loading, login, register, logout };
+  const value = { user, token, loading, login, register, logout, setUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

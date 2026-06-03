@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Moon, Sun, ShoppingCart } from 'lucide-react';
+import { Moon, Sun, ShoppingCart, User, LogOut } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
 
@@ -12,12 +13,14 @@ function getInitials(name) {
 }
 
 function Navbar() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { items } = useCart();
   const navigate = useNavigate();
   const [theme, setTheme] = useState(
     () => localStorage.getItem('theme') || 'light'
   );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   // Apply theme to <html> element
   useEffect(() => {
@@ -25,8 +28,26 @@ function Navbar() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Close the user dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    toast.success('Logged out');
+    navigate('/login');
   };
 
   const cartCount = items.length;
@@ -44,25 +65,19 @@ function Navbar() {
           <NavLink
             to="/"
             end
-            className={({ isActive }) =>
-              `nav-link ${isActive ? 'active' : ''}`
-            }
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
             Home
           </NavLink>
           <NavLink
             to="/equipment"
-            className={({ isActive }) =>
-              `nav-link ${isActive ? 'active' : ''}`
-            }
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
             Equipment
           </NavLink>
           <NavLink
             to="/my-bookings"
-            className={({ isActive }) =>
-              `nav-link ${isActive ? 'active' : ''}`
-            }
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
             My Bookings
           </NavLink>
@@ -87,19 +102,68 @@ function Navbar() {
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          <button
-            className="cart-btn"
-            onClick={() => navigate('/cart')}
-            aria-label="Cart"
-          >
-            <ShoppingCart size={20} />
-            {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-          </button>
+          {/* Cart is only visible when logged in */}
+          {user && (
+            <button
+              className="cart-btn"
+              onClick={() => navigate('/cart')}
+              aria-label="Cart"
+            >
+              <ShoppingCart size={20} />
+              {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
+            </button>
+          )}
 
           {user ? (
-            <div className="user-menu" onClick={() => navigate('/profile')}>
-              <div className="user-avatar">{getInitials(user.name)}</div>
-              <span className="user-name">{user.name}</span>
+            <div style={{ position: 'relative' }} ref={menuRef}>
+              <div
+                className="user-menu"
+                onClick={() => setMenuOpen((o) => !o)}
+              >
+                <div className="user-avatar">{getInitials(user.name)}</div>
+                <span className="user-name">{user.name}</span>
+              </div>
+
+              {menuOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 'calc(100% + 8px)',
+                    minWidth: '180px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-lg)',
+                    padding: '8px',
+                    zIndex: 200,
+                  }}
+                >
+                  <button
+                    className="admin-nav-item"
+                    style={{ width: '100%' }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/profile');
+                    }}
+                  >
+                    <span className="admin-nav-icon">
+                      <User size={18} />
+                    </span>
+                    Profile
+                  </button>
+                  <button
+                    className="admin-nav-item"
+                    style={{ width: '100%' }}
+                    onClick={handleLogout}
+                  >
+                    <span className="admin-nav-icon">
+                      <LogOut size={18} />
+                    </span>
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <Link to="/login" className="btn btn-primary btn-sm">

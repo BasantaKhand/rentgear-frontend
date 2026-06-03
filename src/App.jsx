@@ -6,6 +6,8 @@ import { CartProvider } from './context/CartContext';
 
 import Navbar from './components/common/Navbar';
 import Footer from './components/common/Footer';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import AdminRoute from './components/common/AdminRoute';
 
 import Home from './pages/Home';
 import Equipment from './pages/Equipment';
@@ -30,19 +32,80 @@ function App() {
           <div className="app-container">
             <Navbar />
             <Routes>
+              {/* Public routes */}
               <Route path="/" element={<Home />} />
               <Route path="/equipment" element={<Equipment />} />
               <Route path="/equipment/:id" element={<EquipmentDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/my-bookings" element={<MyBookings />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/admin" element={<Dashboard />} />
-              <Route path="/admin/equipment" element={<ManageEquipment />} />
-              <Route path="/admin/bookings" element={<ManageBookings />} />
-              <Route path="/admin/users" element={<ManageUsers />} />
+
+              {/* Protected routes (require login) */}
+              <Route
+                path="/cart"
+                element={
+                  <ProtectedRoute>
+                    <Cart />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-bookings"
+                element={
+                  <ProtectedRoute>
+                    <MyBookings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Admin routes (require admin role) */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminRoute>
+                    <Dashboard />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/equipment"
+                element={
+                  <AdminRoute>
+                    <ManageEquipment />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/bookings"
+                element={
+                  <AdminRoute>
+                    <ManageBookings />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminRoute>
+                    <ManageUsers />
+                  </AdminRoute>
+                }
+              />
             </Routes>
             <Footer />
           </div>
