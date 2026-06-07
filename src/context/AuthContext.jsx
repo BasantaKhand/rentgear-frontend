@@ -75,7 +75,22 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = { user, token, loading, login, register, logout, setUser };
+  // Refresh the stored user (e.g. after a profile update)
+  const updateUser = (updatedUser) => {
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
+  const value = {
+    user,
+    token,
+    loading,
+    login,
+    register,
+    logout,
+    setUser,
+    updateUser,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
