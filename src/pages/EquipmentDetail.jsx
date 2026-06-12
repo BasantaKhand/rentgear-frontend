@@ -128,18 +128,7 @@ function EquipmentDetail() {
   const canAddToCart = days > 0 && isAvailable;
 
   const handleAddToCart = () => {
-    addToCart({
-      id: `${equipment._id}_${Date.now()}`,
-      equipmentId: equipment._id,
-      name: equipment.name,
-      image: equipment.image,
-      dailyRate: equipment.dailyRate,
-      startDate,
-      endDate,
-      days,
-      price: subtotal,
-      deposit,
-    });
+    addToCart(equipment, startDate, endDate);
     toast.success('Added to cart');
     navigate('/cart');
   };
