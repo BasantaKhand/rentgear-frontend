@@ -16,7 +16,6 @@ const TABS = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-// Which statuses each tab includes
 const TAB_STATUSES = {
   all: null,
   active: ['pending', 'approved', 'active'],
@@ -35,21 +34,74 @@ function formatRange(start, end) {
   return `${s} - ${e}`;
 }
 
+function formatDateTime(value) {
+  return new Date(value).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Small payment indicator shown under the booking status
+function PaymentIndicator({ payment }) {
+  if (!payment) return null;
+  if (payment.status === 'completed') {
+    return (
+      <span className="status-badge completed" style={{ marginTop: '6px' }}>
+        Paid
+      </span>
+    );
+  }
+  if (payment.status === 'refunded') {
+    return (
+      <span className="status-badge cancelled" style={{ marginTop: '6px' }}>
+        Refunded
+      </span>
+    );
+  }
+  if (payment.status === 'pending' && payment.method === 'cash') {
+    return (
+      <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+        Pay at Pickup
+      </span>
+    );
+  }
+  return (
+    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+      Payment {payment.status}
+    </span>
+  );
+}
+
 function MyBookings() {
   const [bookings, setBookings] = useState([]);
+  const [paymentsByBooking, setPaymentsByBooking] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
 
-  const [detail, setDetail] = useState(null); // booking to view
-  const [cancelTarget, setCancelTarget] = useState(null); // booking to cancel
+  const [detail, setDetail] = useState(null);
+  const [receipt, setReceipt] = useState(null); // { booking, payment }
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
-  const loadBookings = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/bookings/my');
-      setBookings(data.bookings || []);
+      const [bRes, pRes] = await Promise.all([
+        api.get('/bookings/my'),
+        api.get('/payments/my'),
+      ]);
+      setBookings(bRes.data.bookings || []);
+
+      const map = {};
+      (pRes.data.payments || []).forEach((p) => {
+        const bId = p.booking?._id || p.booking;
+        if (bId) map[bId] = p;
+      });
+      setPaymentsByBooking(map);
       setError(null);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load bookings'));
@@ -59,7 +111,7 @@ function MyBookings() {
   };
 
   useEffect(() => {
-    loadBookings();
+    loadData();
   }, []);
 
   const filtered = bookings.filter((b) => {
@@ -74,7 +126,7 @@ function MyBookings() {
       await api.put(`/bookings/${cancelTarget._id}/cancel`);
       toast.success('Booking cancelled');
       setCancelTarget(null);
-      await loadBookings();
+      await loadData();
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not cancel booking'));
     } finally {
@@ -134,39 +186,53 @@ function MyBookings() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((b) => (
-                <tr key={b._id}>
-                  <td>{shortId(b._id)}</td>
-                  <td>
-                    {b.equipment ? (
-                      <Link to={`/equipment/${b.equipment._id}`} style={{ color: 'var(--brand-primary)' }}>
-                        {b.equipment.name}
-                      </Link>
-                    ) : (
-                      'Equipment'
-                    )}
-                  </td>
-                  <td>{formatRange(b.startDate, b.endDate)}</td>
-                  <td>${b.totalPrice?.toFixed(2)}</td>
-                  <td>
-                    <StatusBadge status={b.status} />
-                  </td>
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setDetail(b)}>
-                      View
-                    </button>
-                    {['pending', 'approved'].includes(b.status) && (
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: 'var(--accent-error)' }}
-                        onClick={() => setCancelTarget(b)}
-                      >
-                        Cancel
+              {filtered.map((b) => {
+                const payment = paymentsByBooking[b._id];
+                return (
+                  <tr key={b._id}>
+                    <td>{shortId(b._id)}</td>
+                    <td>
+                      {b.equipment ? (
+                        <Link to={`/equipment/${b.equipment._id}`} style={{ color: 'var(--brand-primary)' }}>
+                          {b.equipment.name}
+                        </Link>
+                      ) : (
+                        'Equipment'
+                      )}
+                    </td>
+                    <td>{formatRange(b.startDate, b.endDate)}</td>
+                    <td>${b.totalPrice?.toFixed(2)}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        <StatusBadge status={b.status} />
+                        <PaymentIndicator payment={payment} />
+                      </div>
+                    </td>
+                    <td>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setDetail(b)}>
+                        View
                       </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      {payment && payment.status === 'completed' && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setReceipt({ booking: b, payment })}
+                        >
+                          Receipt
+                        </button>
+                      )}
+                      {['pending', 'approved'].includes(b.status) && (
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--accent-error)' }}
+                          onClick={() => setCancelTarget(b)}
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -234,6 +300,42 @@ function MyBookings() {
                 <span>Deposit (refundable)</span>
                 <span>${detail.deposit?.toFixed(2)}</span>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Receipt modal */}
+      <Modal
+        isOpen={!!receipt}
+        onClose={() => setReceipt(null)}
+        title="Payment Receipt"
+      >
+        {receipt && (
+          <div className="rental-summary">
+            <div className="summary-row">
+              <span>Payment ID</span>
+              <span>{receipt.payment._id}</span>
+            </div>
+            <div className="summary-row">
+              <span>Booking reference</span>
+              <span>{shortId(receipt.booking._id)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Method</span>
+              <span style={{ textTransform: 'capitalize' }}>{receipt.payment.method}</span>
+            </div>
+            <div className="summary-row">
+              <span>Transaction ID</span>
+              <span>{receipt.payment.transactionId || '—'}</span>
+            </div>
+            <div className="summary-row">
+              <span>Date</span>
+              <span>{formatDateTime(receipt.payment.createdAt)}</span>
+            </div>
+            <div className="summary-row total">
+              <span>Amount paid</span>
+              <span>${receipt.payment.amount?.toFixed(2)}</span>
             </div>
           </div>
         )}
