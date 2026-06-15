@@ -6,8 +6,25 @@ import api from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 import { getCategoryMeta, resolveImageUrl } from '../utils/equipmentMeta';
 import { getErrorMessage } from '../utils/getErrorMessage';
+
+// --- Card input formatters ---
+const formatCardNumber = (v) =>
+  v
+    .replace(/\D/g, '')
+    .slice(0, 16)
+    .replace(/(.{4})/g, '$1 ')
+    .trim();
+
+const formatExpiry = (v) => {
+  const digits = v.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+};
+
+const formatCvv = (v) => v.replace(/\D/g, '').slice(0, 3);
 
 function Checkout() {
   const navigate = useNavigate();
@@ -30,15 +47,22 @@ function Checkout() {
     address: user?.address || '',
   });
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [card, setCard] = useState({ number: '', expiry: '', cvv: '' });
+  const [card, setCard] = useState({ name: '', number: '', expiry: '', cvv: '' });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState(null); // { bookings, payments, method }
 
   const handleContactChange = (e) =>
     setContact((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-  const handleCardChange = (e) =>
-    setCard((p) => ({ ...p, [e.target.name]: e.target.value }));
+  const handleCardChange = (e) => {
+    const { name, value } = e.target;
+    let formatted = value;
+    if (name === 'number') formatted = formatCardNumber(value);
+    else if (name === 'expiry') formatted = formatExpiry(value);
+    else if (name === 'cvv') formatted = formatCvv(value);
+    setCard((p) => ({ ...p, [name]: formatted }));
+  };
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -64,6 +88,26 @@ function Checkout() {
     }
   };
 
+  const validateCard = () => {
+    if (card.number.replace(/\s/g, '').length !== 16) {
+      toast.error('Enter a valid 16-digit card number');
+      return false;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(card.expiry)) {
+      toast.error('Enter expiry as MM/YY');
+      return false;
+    }
+    if (card.cvv.length !== 3) {
+      toast.error('Enter a valid 3-digit CVV');
+      return false;
+    }
+    if (!card.name.trim()) {
+      toast.error('Enter the cardholder name');
+      return false;
+    }
+    return true;
+  };
+
   const handleComplete = async () => {
     if (submitting) return;
 
@@ -75,6 +119,9 @@ function Checkout() {
       toast.error('Please upload your ID document to continue');
       return;
     }
+    if (paymentMethod === 'card' && !validateCard()) {
+      return;
+    }
 
     const payloadItems = items.map((it) => ({
       equipmentId: it.equipmentId,
@@ -84,18 +131,28 @@ function Checkout() {
 
     setSubmitting(true);
     try {
-      await api.post('/bookings/checkout', { items: payloadItems });
+      // Backend creates bookings AND a payment per booking for the given method
+      const { data } = await api.post('/bookings/checkout', {
+        items: payloadItems,
+        paymentMethod,
+      });
+      // Only clear the cart once everything succeeded
       clearCart();
+      setConfirmation({
+        bookings: data.bookings || [],
+        payments: data.payments || [],
+        method: paymentMethod,
+      });
       toast.success('Booking confirmed!');
-      navigate('/my-bookings');
     } catch (err) {
+      // Cart is preserved so the user can retry
       toast.error(getErrorMessage(err, 'Could not complete booking'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && !confirmation) {
     return (
       <div className="main-content">
         <div className="empty-state">
@@ -109,6 +166,14 @@ function Checkout() {
       </div>
     );
   }
+
+  const paymentStatus = confirmation
+    ? confirmation.payments[0]?.status ||
+      (confirmation.method === 'card' ? 'completed' : 'pending')
+    : null;
+  const confirmationTotal = confirmation
+    ? confirmation.payments.reduce((s, p) => s + (p.amount || 0), 0)
+    : 0;
 
   return (
     <div className="main-content">
@@ -147,8 +212,12 @@ function Checkout() {
 
           {/* Payment Method */}
           <div className="data-table-card" style={{ marginBottom: '24px' }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Payment Method</h3>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#1a1f71', color: 'white' }}>VISA</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#eb001b', color: 'white' }}>MC</span>
+              </div>
             </div>
             <div style={{ padding: '24px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
@@ -181,16 +250,20 @@ function Checkout() {
               {paymentMethod === 'card' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                    <label>Cardholder Name</label>
+                    <input className="form-input" name="name" placeholder="Name on card" value={card.name} onChange={handleCardChange} />
+                  </div>
+                  <div className="form-group" style={{ gridColumn: 'span 2' }}>
                     <label>Card Number</label>
-                    <input className="form-input" name="number" placeholder="1234 5678 9012 3456" value={card.number} onChange={handleCardChange} />
+                    <input className="form-input" name="number" placeholder="1234 5678 9012 3456" value={card.number} onChange={handleCardChange} inputMode="numeric" />
                   </div>
                   <div className="form-group">
                     <label>Expiry Date</label>
-                    <input className="form-input" name="expiry" placeholder="MM/YY" value={card.expiry} onChange={handleCardChange} />
+                    <input className="form-input" name="expiry" placeholder="MM/YY" value={card.expiry} onChange={handleCardChange} inputMode="numeric" />
                   </div>
                   <div className="form-group">
                     <label>CVV</label>
-                    <input className="form-input" name="cvv" placeholder="123" value={card.cvv} onChange={handleCardChange} />
+                    <input className="form-input" name="cvv" placeholder="123" value={card.cvv} onChange={handleCardChange} inputMode="numeric" />
                   </div>
                 </div>
               )}
@@ -292,6 +365,51 @@ function Checkout() {
           </p>
         </div>
       </div>
+
+      {/* Confirmation modal */}
+      <Modal
+        isOpen={!!confirmation}
+        onClose={() => navigate('/my-bookings')}
+        title="Booking Confirmed"
+        footer={
+          <Button variant="primary" onClick={() => navigate('/my-bookings')}>
+            View My Bookings
+          </Button>
+        }
+      >
+        {confirmation && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', color: 'var(--accent-success)' }}>
+                <CheckCircle size={48} />
+              </div>
+              <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Thank you!</h3>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                {confirmation.bookings.length}{' '}
+                {confirmation.bookings.length === 1 ? 'booking' : 'bookings'} created.
+              </p>
+            </div>
+            <div className="rental-summary">
+              <div className="summary-row">
+                <span>Payment method</span>
+                <span style={{ textTransform: 'capitalize' }}>{confirmation.method}</span>
+              </div>
+              <div className="summary-row">
+                <span>Payment status</span>
+                <span>
+                  <span className={`status-badge ${paymentStatus}`}>
+                    {paymentStatus === 'completed' ? 'Paid' : 'Pay at Pickup'}
+                  </span>
+                </span>
+              </div>
+              <div className="summary-row total">
+                <span>Amount</span>
+                <span>${confirmationTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
