@@ -1647,3 +1647,44 @@ input, select, textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==================== PRINT (INVOICE) ==================== */
+@media print {
+    /* Hide everything, then reveal only the printable invoice */
+    body * {
+        visibility: hidden;
+    }
+
+    #invoice-printable,
+    #invoice-printable * {
+        visibility: visible;
+    }
+
+    #invoice-printable {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 24px;
+        color: #000;
+        background: #fff;
+    }
+
+    /* Force a clean black-and-white layout */
+    #invoice-printable * {
+        color: #000 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    #invoice-printable .summary-row.total {
+        border-top: 1px solid #000;
+    }
+
+    .no-print,
+    .navbar,
+    .footer,
+    .toast-container {
+        display: none !important;
+    }
+}
