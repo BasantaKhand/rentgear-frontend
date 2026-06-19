@@ -7,8 +7,11 @@ import Loader from '../components/common/Loader';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import StatusBadge from '../components/common/StatusBadge';
+import InvoiceModal from '../components/booking/InvoiceModal';
 import { getCategoryMeta, resolveImageUrl } from '../utils/equipmentMeta';
 import { getErrorMessage } from '../utils/getErrorMessage';
+
+const INVOICE_STATUSES = ['approved', 'active', 'completed'];
 
 const TABS = [
   { key: 'all', label: 'All' },
@@ -122,6 +125,9 @@ function MyBookings() {
   const [extendTarget, setExtendTarget] = useState(null);
   const [newEndDate, setNewEndDate] = useState('');
   const [extending, setExtending] = useState(false);
+
+  // Invoice modal
+  const [invoiceBookingId, setInvoiceBookingId] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -323,6 +329,10 @@ function MyBookings() {
 
                         {payment && payment.status === 'completed' && (
                           <button className="btn btn-ghost btn-sm" onClick={() => setReceipt({ booking: b, payment })}>Receipt</button>
+                        )}
+
+                        {INVOICE_STATUSES.includes(b.status) && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => setInvoiceBookingId(b._id)}>Invoice</button>
                         )}
 
                         {['pending', 'approved'].includes(b.status) && (
@@ -534,6 +544,14 @@ function MyBookings() {
           </div>
         )}
       </Modal>
+
+      {/* Invoice modal */}
+      {invoiceBookingId && (
+        <InvoiceModal
+          bookingId={invoiceBookingId}
+          onClose={() => setInvoiceBookingId(null)}
+        />
+      )}
     </div>
   );
 }
