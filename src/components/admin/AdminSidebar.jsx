@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -22,7 +22,11 @@ const NAV_ITEMS = [
 function AdminSidebar() {
   return (
     <aside className="admin-sidebar">
-      <div style={{ marginBottom: '24px' }}>
+      <Link to="/" className="logo" style={{ marginBottom: '24px' }}>
+        <div className="logo-icon">R</div>
+        RentGear
+      </Link>
+      <div style={{ marginBottom: '16px' }}>
         <h3
           style={{
             fontSize: '12px',
@@ -30,7 +34,6 @@ function AdminSidebar() {
             color: 'var(--text-tertiary)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            marginBottom: '16px',
           }}
         >
           Admin Panel
