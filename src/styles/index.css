@@ -1660,7 +1660,18 @@ input, select, textarea {
         visibility: visible;
     }
 
-    #invoice-printable {
+    #invoice-printable,
+    #report-printable {
+        visibility: visible;
+    }
+
+    #report-printable *,
+    #invoice-printable * {
+        visibility: visible;
+    }
+
+    #invoice-printable,
+    #report-printable {
         position: absolute;
         top: 0;
         left: 0;
@@ -1671,7 +1682,8 @@ input, select, textarea {
     }
 
     /* Force a clean black-and-white layout */
-    #invoice-printable * {
+    #invoice-printable *,
+    #report-printable * {
         color: #000 !important;
         background: transparent !important;
         box-shadow: none !important;
