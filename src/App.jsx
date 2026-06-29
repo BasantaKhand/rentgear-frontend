@@ -23,6 +23,7 @@ import Dashboard from './pages/admin/Dashboard';
 import ManageEquipment from './pages/admin/ManageEquipment';
 import ManageBookings from './pages/admin/ManageBookings';
 import ManageUsers from './pages/admin/ManageUsers';
+import Reports from './pages/admin/Reports';
 
 function App() {
   return (
@@ -103,6 +104,14 @@ function App() {
                 element={
                   <AdminRoute>
                     <ManageUsers />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/reports"
+                element={
+                  <AdminRoute>
+                    <Reports />
                   </AdminRoute>
                 }
               />
