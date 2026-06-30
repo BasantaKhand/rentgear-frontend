@@ -131,6 +131,10 @@ function Checkout() {
 
     setSubmitting(true);
     try {
+      // Simulate card payment processing time for a realistic UX
+      if (paymentMethod === 'card') {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
       // Backend creates bookings AND a payment per booking for the given method
       const { data } = await api.post('/bookings/checkout', {
         items: payloadItems,
