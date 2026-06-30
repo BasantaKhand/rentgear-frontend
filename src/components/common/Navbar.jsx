@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Moon, Sun, ShoppingCart, User, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import { useCart } from '../../hooks/useCart';
+import NotificationBell from './NotificationBell';
 
 function getInitials(name) {
   if (!name) return 'U';
@@ -16,6 +17,8 @@ function Navbar() {
   const { user, logout } = useAuth();
   const { items } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const [theme, setTheme] = useState(
     () => localStorage.getItem('theme') || 'light'
   );
@@ -61,37 +64,40 @@ function Navbar() {
           RentGear
         </Link>
 
-        <div className="nav-links">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            Home
-          </NavLink>
-          <NavLink
-            to="/equipment"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            Equipment
-          </NavLink>
-          <NavLink
-            to="/my-bookings"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-          >
-            My Bookings
-          </NavLink>
-          {isAdmin && (
+        {/* On admin routes, navigation happens via the admin sidebar */}
+        {!isAdminRoute && (
+          <div className="nav-links">
             <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `nav-link ${isActive ? 'active' : ''}`
-              }
+              to="/"
+              end
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
-              Admin
+              Home
             </NavLink>
-          )}
-        </div>
+            <NavLink
+              to="/equipment"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              Equipment
+            </NavLink>
+            <NavLink
+              to="/my-bookings"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
+              My Bookings
+            </NavLink>
+            {isAdmin && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `nav-link ${isActive ? 'active' : ''}`
+                }
+              >
+                Admin
+              </NavLink>
+            )}
+          </div>
+        )}
 
         <div className="nav-actions">
           <button
@@ -102,8 +108,11 @@ function Navbar() {
             {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          {/* Cart is only visible when logged in */}
-          {user && (
+          {/* Notification bell for logged-in users */}
+          {user && <NotificationBell />}
+
+          {/* Cart is visible for logged-in users on non-admin pages */}
+          {user && !isAdminRoute && (
             <button
               className="cart-btn"
               onClick={() => navigate('/cart')}
