@@ -1,6 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 function Footer() {
+  const { pathname } = useLocation();
+  // Footer is hidden on admin pages (they use the sidebar layout)
+  if (pathname.startsWith('/admin')) return null;
+
   return (
     <footer className="footer">
       <div className="footer-grid">
