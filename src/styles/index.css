@@ -1700,3 +1700,60 @@ input, select, textarea {
         display: none !important;
     }
 }
+
+/* ==================== PHASE 3 POLISH ==================== */
+
+/* Keep price range inputs inside the filter sidebar */
+.price-input {
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.price-range {
+    width: 100%;
+}
+
+/* Admin mobile sidebar toggle */
+.admin-mobile-toggle {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    background: var(--brand-primary);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+}
+
+@media (max-width: 1024px) {
+    .admin-mobile-toggle {
+        display: flex;
+    }
+
+    .admin-sidebar.open {
+        display: block;
+        position: fixed;
+        top: 72px;
+        left: 0;
+        bottom: 0;
+        width: 260px;
+        z-index: 150;
+        overflow-y: auto;
+    }
+}
+
+/* Make wide tables scroll horizontally on small screens */
+@media (max-width: 768px) {
+    .data-table-card {
+        overflow-x: auto;
+    }
+
+    .data-table {
+        min-width: 640px;
+    }
+}
