@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
@@ -8,6 +8,8 @@ import { getErrorMessage } from '../utils/getErrorMessage';
 function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [remember, setRemember] = useState(false);
@@ -25,7 +27,7 @@ function Login() {
     try {
       await login({ email: form.email, password: form.password });
       toast.success('Welcome back!');
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err) {
       toast.error(getErrorMessage(err, 'Login failed. Please try again.'));
     } finally {
