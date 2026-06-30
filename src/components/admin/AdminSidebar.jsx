@@ -1,12 +1,13 @@
+import { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
   Calendar,
   Users,
-  DollarSign,
   BarChart3,
-  Settings,
+  Menu,
+  X,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -14,14 +15,22 @@ const NAV_ITEMS = [
   { to: '/admin/equipment', label: 'Equipment', icon: Package },
   { to: '/admin/bookings', label: 'Bookings', icon: Calendar },
   { to: '/admin/users', label: 'Users', icon: Users },
-  { to: '/admin/payments', label: 'Payments', icon: DollarSign },
   { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
-  { to: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
 function AdminSidebar() {
+  const [open, setOpen] = useState(false);
+
   return (
-    <aside className="admin-sidebar">
+    <>
+      <button
+        className="admin-mobile-toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Toggle admin menu"
+      >
+        {open ? <X size={20} /> : <Menu size={20} />}
+      </button>
+      <aside className={`admin-sidebar ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
       <Link to="/" className="logo" style={{ marginBottom: '24px' }}>
         <div className="logo-icon">R</div>
         RentGear
@@ -56,7 +65,8 @@ function AdminSidebar() {
           </NavLink>
         ))}
       </nav>
-    </aside>
+      </aside>
+    </>
   );
 }
 
