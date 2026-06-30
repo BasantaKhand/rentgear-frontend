@@ -24,6 +24,7 @@ import ManageEquipment from './pages/admin/ManageEquipment';
 import ManageBookings from './pages/admin/ManageBookings';
 import ManageUsers from './pages/admin/ManageUsers';
 import Reports from './pages/admin/Reports';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -115,6 +116,9 @@ function App() {
                   </AdminRoute>
                 }
               />
+
+              {/* Catch-all 404 */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
             <Footer />
           </div>
