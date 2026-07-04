@@ -7,6 +7,9 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Loader from '../components/common/Loader';
 import StatusBadge from '../components/common/StatusBadge';
+import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
+import ActiveSessions from '../components/profile/ActiveSessions';
+import { isStrongEnough } from '../utils/passwordStrength';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 const API_ORIGIN = (
@@ -137,8 +140,8 @@ function Profile() {
       toast.error('New passwords do not match');
       return;
     }
-    if (pwForm.newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters');
+    if (!isStrongEnough(pwForm.newPassword)) {
+      toast.error('Please choose a stronger password');
       return;
     }
 
@@ -349,12 +352,20 @@ function Profile() {
                 />
               </div>
             </div>
-            <Button type="submit" variant="primary" disabled={changingPw}>
+            <PasswordStrengthMeter password={pwForm.newPassword} />
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={changingPw || !isStrongEnough(pwForm.newPassword)}
+            >
               {changingPw ? 'Changing...' : 'Change Password'}
             </Button>
           </form>
         </div>
       </div>
+
+      {/* Active Sessions */}
+      <ActiveSessions />
 
       {/* Rental History */}
       <div className="data-table-card">
