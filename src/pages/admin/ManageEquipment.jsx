@@ -154,6 +154,25 @@ function ManageEquipment() {
       toast.error('Please fill in all required fields');
       return;
     }
+    // Client-side validation mirroring the backend rules (defense in depth).
+    if (form.name.trim().length < 3 || form.name.trim().length > 100) {
+      toast.error('Name must be 3-100 characters');
+      return;
+    }
+    if (form.description.length > 500) {
+      toast.error('Description must be at most 500 characters');
+      return;
+    }
+    const rate = Number(form.dailyRate);
+    const qty = Number(form.quantity);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 10000) {
+      toast.error('Daily rate must be between 0 and 10000');
+      return;
+    }
+    if (!Number.isInteger(qty) || qty < 0 || qty > 100) {
+      toast.error('Quantity must be a whole number between 0 and 100');
+      return;
+    }
     const fd = new FormData();
     fd.append('name', form.name);
     fd.append('category', form.category);
@@ -409,7 +428,8 @@ function ManageEquipment() {
           <form onSubmit={submitForm}>
             <div className="form-group">
               <label>Name</label>
-              <input className="form-input" name="name" value={form.name} onChange={onFormChange} />
+              <input className="form-input" name="name" value={form.name} onChange={onFormChange} maxLength={100} minLength={3} />
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{form.name.length}/100</span>
             </div>
             <div className="form-group">
               <label>Category</label>
@@ -419,16 +439,17 @@ function ManageEquipment() {
             </div>
             <div className="form-group">
               <label>Description</label>
-              <textarea className="form-input" name="description" rows={3} value={form.description} onChange={onFormChange} />
+              <textarea className="form-input" name="description" rows={3} value={form.description} onChange={onFormChange} maxLength={500} />
+              <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{form.description.length}/500</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="form-group">
                 <label>Daily Rate ($)</label>
-                <input className="form-input" type="number" name="dailyRate" value={form.dailyRate} onChange={onFormChange} />
+                <input className="form-input" type="number" name="dailyRate" min="0" max="10000" step="0.01" value={form.dailyRate} onChange={onFormChange} />
               </div>
               <div className="form-group">
                 <label>Quantity</label>
-                <input className="form-input" type="number" name="quantity" value={form.quantity} onChange={onFormChange} />
+                <input className="form-input" type="number" name="quantity" min="0" max="100" step="1" value={form.quantity} onChange={onFormChange} />
               </div>
             </div>
             <div className="form-group">
@@ -436,7 +457,7 @@ function ManageEquipment() {
               {imagePreview && (
                 <img src={imagePreview} alt="preview" style={{ width: '120px', height: '90px', objectFit: 'cover', borderRadius: '8px', marginBottom: '8px' }} />
               )}
-              <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png,.webp" onChange={onImageChange} />
+              <input ref={fileRef} type="file" accept=".jpg,.jpeg,.png" onChange={onImageChange} />
             </div>
           </form>
         )}
