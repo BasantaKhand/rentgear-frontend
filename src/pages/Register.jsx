@@ -3,6 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
+import Captcha from '../components/common/Captcha';
+import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
+import { isStrongEnough } from '../utils/passwordStrength';
+import { isValidEmail, isValidPhone, isValidName } from '../utils/validators';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 function Register() {
@@ -19,6 +23,8 @@ function Register() {
   });
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [captcha, setCaptcha] = useState({ token: '', answer: '' });
+  const [captchaReload, setCaptchaReload] = useState(0);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -28,7 +34,23 @@ function Register() {
     e.preventDefault();
     if (submitting) return;
 
-    // Frontend validation: password match
+    // Frontend validation (defense in depth) — name, email, phone, then password
+    if (!isValidName(`${form.firstName} ${form.lastName}`.trim())) {
+      toast.error('Please enter a valid name (letters and spaces, 2-50 chars)');
+      return;
+    }
+    if (!isValidEmail(form.email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!isValidPhone(form.phone)) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+    if (!isStrongEnough(form.password)) {
+      toast.error('Please choose a stronger password');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -37,12 +59,18 @@ function Register() {
       toast.error('Please accept the Terms of Service to continue');
       return;
     }
+    if (!captcha.answer) {
+      toast.error('Please complete the security check');
+      return;
+    }
 
     const payload = {
       name: `${form.firstName} ${form.lastName}`.trim(),
       email: form.email,
       phone: form.phone,
       password: form.password,
+      captchaToken: captcha.token,
+      captchaAnswer: captcha.answer,
     };
 
     setSubmitting(true);
@@ -51,7 +79,13 @@ function Register() {
       toast.success('Account created successfully!');
       navigate('/');
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Registration failed. Please try again.'));
+      // A fresh challenge on any failure (captcha tokens are single-use in spirit).
+      setCaptchaReload((n) => n + 1);
+      if (err.rateLimited) {
+        toast.error(err.friendlyMessage);
+      } else {
+        toast.error(getErrorMessage(err, 'Registration failed. Please try again.'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -150,6 +184,8 @@ function Register() {
             />
           </div>
 
+          <PasswordStrengthMeter password={form.password} />
+
           <div className="form-group">
             <label htmlFor="confirmPassword">Confirm password</label>
             <input
@@ -163,6 +199,8 @@ function Register() {
               required
             />
           </div>
+
+          <Captcha reloadKey={captchaReload} onChange={setCaptcha} />
 
           <label
             className="filter-option"
@@ -189,7 +227,12 @@ function Register() {
             type="submit"
             variant="primary"
             style={{ width: '100%' }}
-            disabled={submitting}
+            disabled={
+              submitting ||
+              !isStrongEnough(form.password) ||
+              !agreed ||
+              !captcha.answer
+            }
           >
             {submitting ? 'Creating account...' : 'Create Account'}
           </Button>
