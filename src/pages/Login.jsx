@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
+import Captcha from '../components/common/Captcha';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 function Login() {
@@ -15,25 +16,84 @@ function Login() {
   const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Brute-force protection UI state
+  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [captcha, setCaptcha] = useState({ token: '', answer: '' });
+  const [captchaReload, setCaptchaReload] = useState(0);
+  const [lockSeconds, setLockSeconds] = useState(0);
+
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  // Countdown timer while the account is locked.
+  useEffect(() => {
+    if (lockSeconds <= 0) return undefined;
+    const id = setInterval(() => setLockSeconds((s) => Math.max(s - 1, 0)), 1000);
+    return () => clearInterval(id);
+  }, [lockSeconds]);
+
+  const formatLock = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || lockSeconds > 0) return;
 
     setSubmitting(true);
     try {
-      await login({ email: form.email, password: form.password });
+      const payload = { email: form.email, password: form.password };
+      if (captchaRequired) {
+        payload.captchaToken = captcha.token;
+        payload.captchaAnswer = captcha.answer;
+      }
+      await login(payload);
       toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Login failed. Please try again.'));
+      const data = err.response?.data;
+      const status = err.response?.status;
+
+      // Reveal the CAPTCHA whenever the server says it's needed.
+      if (data?.captchaRequired) {
+        setCaptchaRequired(true);
+        setCaptchaReload((n) => n + 1); // force a fresh challenge
+      }
+
+      if (err.rateLimited) {
+        if (err.retryAfterSeconds) setLockSeconds(err.retryAfterSeconds);
+        toast.error(err.friendlyMessage);
+      } else if (status === 423) {
+        // Account locked — start a countdown if we can compute it.
+        if (data?.lockUntil) {
+          const secs = Math.max(
+            Math.ceil((new Date(data.lockUntil).getTime() - Date.now()) / 1000),
+            0
+          );
+          setLockSeconds(secs);
+        }
+        toast.error(data?.message || 'Account locked. Try again later.');
+      } else if (status === 400 && data?.captchaRequired) {
+        toast.error(data?.message || 'Please complete the security check.');
+      } else if (data?.attemptsRemaining !== undefined) {
+        const n = data.attemptsRemaining;
+        if (n <= 2) {
+          toast.error(`Invalid credentials. ${n} attempt(s) remaining before lockout.`);
+        } else {
+          toast.error('Invalid credentials');
+        }
+      } else {
+        toast.error(getErrorMessage(err, 'Login failed. Please try again.'));
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
+  const locked = lockSeconds > 0;
 
   return (
     <div className="main-content">
@@ -79,6 +139,27 @@ function Login() {
             />
           </div>
 
+          {captchaRequired && (
+            <Captcha reloadKey={captchaReload} onChange={setCaptcha} />
+          )}
+
+          {locked && (
+            <div
+              style={{
+                marginBottom: '16px',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                background: 'rgba(220, 38, 38, 0.08)',
+                color: 'var(--danger, #dc2626)',
+                fontSize: '14px',
+                textAlign: 'center',
+              }}
+            >
+              Too many attempts. Please wait {formatLock(lockSeconds)} before trying
+              again.
+            </div>
+          )}
+
           <div
             style={{
               display: 'flex',
@@ -110,9 +191,13 @@ function Login() {
             type="submit"
             variant="primary"
             style={{ width: '100%' }}
-            disabled={submitting}
+            disabled={submitting || locked}
           >
-            {submitting ? 'Signing in...' : 'Sign In'}
+            {locked
+              ? `Locked (${formatLock(lockSeconds)})`
+              : submitting
+                ? 'Signing in...'
+                : 'Sign In'}
           </Button>
         </form>
 
