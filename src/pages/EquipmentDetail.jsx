@@ -18,6 +18,8 @@ function daysBetween(start, end) {
   return diff > 0 ? diff : 0;
 }
 
+const todayStr = () => new Date().toISOString().split('T')[0];
+
 function EquipmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -217,6 +219,7 @@ function EquipmentDetail() {
               <input
                 type="date"
                 value={startDate}
+                min={todayStr()}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
@@ -225,7 +228,7 @@ function EquipmentDetail() {
               <input
                 type="date"
                 value={endDate}
-                min={startDate || undefined}
+                min={startDate || todayStr()}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
