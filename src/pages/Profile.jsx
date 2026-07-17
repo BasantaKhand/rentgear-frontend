@@ -9,6 +9,7 @@ import Loader from '../components/common/Loader';
 import StatusBadge from '../components/common/StatusBadge';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
 import ActiveSessions from '../components/profile/ActiveSessions';
+import MfaSettings from '../components/profile/MfaSettings';
 import { isStrongEnough } from '../utils/passwordStrength';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
@@ -363,6 +364,9 @@ function Profile() {
           </form>
         </div>
       </div>
+
+      {/* Two-Factor Authentication */}
+      <MfaSettings />
 
       {/* Active Sessions */}
       <ActiveSessions />
