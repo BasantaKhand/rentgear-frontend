@@ -63,12 +63,38 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async (credentials) => {
-    const { data } = await api.post('/auth/login', credentials);
+  // Establish the session from a token-bearing auth response.
+  const applyAuth = (data) => {
     setAccessToken(data.accessToken);
     if (data.csrfToken) setCsrfToken(data.csrfToken);
     lastActivityRef.current = Date.now();
     setUser(data.user);
+  };
+
+  const login = async (credentials) => {
+    const { data } = await api.post('/auth/login', credentials);
+    // If MFA is enabled the server returns { mfaRequired } and NO tokens.
+    if (data.mfaRequired) return data;
+    applyAuth(data);
+    return data;
+  };
+
+  // Login step 2: verify the emailed OTP and establish the session.
+  const verifyOtp = async (email, otp) => {
+    const { data } = await api.post('/auth/verify-otp', { email, otp });
+    applyAuth(data);
+    return data;
+  };
+
+  const resendOtp = (email) => api.post('/auth/mfa/resend', { email });
+
+  // MFA settings (authenticated). Enable/disable send an OTP; verifyMfaSetup
+  // confirms it.
+  const enableMfa = (password) => api.post('/auth/mfa/enable', { password });
+  const disableMfa = (password) => api.post('/auth/mfa/disable', { password });
+  const verifyMfaSetup = async (otp) => {
+    const { data } = await api.post('/auth/mfa/verify', { otp });
+    if (user) setUser({ ...user, mfaEnabled: data.mfaEnabled });
     return data;
   };
 
@@ -140,7 +166,20 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const value = { user, loading, login, register, logout, setUser, updateUser };
+  const value = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    setUser,
+    updateUser,
+    verifyOtp,
+    resendOtp,
+    enableMfa,
+    disableMfa,
+    verifyMfaSetup,
+  };
 
   return (
     <AuthContext.Provider value={value}>
