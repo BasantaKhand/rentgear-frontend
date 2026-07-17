@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local HTTPS dev certificates
+certs
+
 # Environment
 .env
 .env.*
