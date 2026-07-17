@@ -18,6 +18,8 @@ import MyBookings from './pages/MyBookings';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 import Dashboard from './pages/admin/Dashboard';
 import ManageEquipment from './pages/admin/ManageEquipment';
@@ -40,6 +42,8 @@ function App() {
               <Route path="/equipment/:id" element={<EquipmentDetail />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password/:token" element={<ResetPassword />} />
 
               {/* Protected routes (require login) */}
               <Route
