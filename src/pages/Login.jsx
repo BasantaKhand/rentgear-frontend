@@ -4,10 +4,11 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Captcha from '../components/common/Captcha';
+import OtpInput from '../components/common/OtpInput';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
 function Login() {
-  const { login } = useAuth();
+  const { login, verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';
@@ -21,6 +22,11 @@ function Login() {
   const [captcha, setCaptcha] = useState({ token: '', answer: '' });
   const [captchaReload, setCaptchaReload] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
+
+  // MFA (OTP) step state
+  const [mfaStep, setMfaStep] = useState(false);
+  const [mfaEmail, setMfaEmail] = useState('');
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -50,7 +56,14 @@ function Login() {
         payload.captchaToken = captcha.token;
         payload.captchaAnswer = captcha.answer;
       }
-      await login(payload);
+      const res = await login(payload);
+      // Two-factor enabled: move to the OTP step instead of logging in.
+      if (res?.mfaRequired) {
+        setMfaEmail(res.email || form.email);
+        setMfaStep(true);
+        toast.success('Enter the code sent to your email');
+        return;
+      }
       toast.success('Welcome back!');
       navigate(from, { replace: true });
     } catch (err) {
@@ -93,7 +106,72 @@ function Login() {
     }
   };
 
+  const handleOtpSubmit = async (code) => {
+    if (otpSubmitting) return;
+    setOtpSubmitting(true);
+    try {
+      await verifyOtp(mfaEmail, code);
+      toast.success('Welcome back!');
+      navigate(from, { replace: true });
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Invalid or expired code'));
+    } finally {
+      setOtpSubmitting(false);
+    }
+  };
+
+  const handleResend = async () => {
+    try {
+      await resendOtp(mfaEmail);
+      toast.success('A new code has been sent');
+    } catch {
+      toast.error('Could not resend code. Please wait a moment.');
+    }
+  };
+
   const locked = lockSeconds > 0;
+
+  // Step 2: OTP entry screen
+  if (mfaStep) {
+    return (
+      <div className="main-content">
+        <div className="form-card">
+          <div className="form-header">
+            <div className="logo" style={{ justifyContent: 'center', marginBottom: '24px' }}>
+              <div className="logo-icon">R</div>
+              RentGear
+            </div>
+            <h2>Two-factor verification</h2>
+            <p>Enter the 6-digit code sent to your email</p>
+          </div>
+
+          <OtpInput
+            onSubmit={handleOtpSubmit}
+            onResend={handleResend}
+            submitting={otpSubmitting}
+          />
+
+          <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setMfaStep(false);
+                setForm((f) => ({ ...f, password: '' }));
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              ← Back to login
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="main-content">
@@ -178,13 +256,12 @@ function Login() {
                 Remember me
               </span>
             </label>
-            <a
-              href="#"
-              onClick={(e) => e.preventDefault()}
+            <Link
+              to="/forgot-password"
               style={{ fontSize: '14px', color: 'var(--brand-primary)' }}
             >
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           <Button
