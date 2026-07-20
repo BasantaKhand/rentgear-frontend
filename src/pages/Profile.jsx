@@ -10,6 +10,7 @@ import StatusBadge from '../components/common/StatusBadge';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
 import ActiveSessions from '../components/profile/ActiveSessions';
 import MfaSettings from '../components/profile/MfaSettings';
+import GoogleAccountSection from '../components/profile/GoogleAccountSection';
 import { isStrongEnough } from '../utils/passwordStrength';
 import { getErrorMessage } from '../utils/getErrorMessage';
 
@@ -24,6 +25,80 @@ function formatDate(value) {
     month: 'short',
     day: 'numeric',
   });
+}
+
+// For Google-only users who don't have a local password yet
+function SetPasswordSection() {
+  const { updateUser, user } = useAuth();
+  const [form, setForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (saving) return;
+    if (form.newPassword !== form.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (!isStrongEnough(form.newPassword)) {
+      toast.error('Please choose a stronger password');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data } = await api.post('/auth/set-password', { newPassword: form.newPassword });
+      if (data.user) updateUser(data.user);
+      toast.success('Password set! You can now sign in with email and password.');
+      setForm({ newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Could not set password'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="data-table-card" style={{ marginBottom: '24px' }}>
+      <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Set Password</h3>
+      </div>
+      <div style={{ padding: '24px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          You signed up with Google. Set a password to also sign in with email and password.
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-group">
+              <label htmlFor="setNewPassword">New password</label>
+              <input
+                id="setNewPassword"
+                className="form-input"
+                type="password"
+                value={form.newPassword}
+                onChange={(e) => setForm((f) => ({ ...f, newPassword: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="setConfirmPassword">Confirm password</label>
+              <input
+                id="setConfirmPassword"
+                className="form-input"
+                type="password"
+                value={form.confirmPassword}
+                onChange={(e) => setForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <PasswordStrengthMeter password={form.newPassword} />
+          <Button type="submit" variant="primary" disabled={saving || !isStrongEnough(form.newPassword)}>
+            {saving ? 'Setting...' : 'Set Password'}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 function Profile() {
@@ -308,7 +383,10 @@ function Profile() {
         </div>
       </div>
 
-      {/* Change Password */}
+      {/* Change Password / Set Password */}
+      {user.hasPassword === false ? (
+        <SetPasswordSection />
+      ) : (
       <div className="data-table-card" style={{ marginBottom: '24px' }}>
         <div style={{ padding: '24px', borderBottom: '1px solid var(--border-light)' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Change Password</h3>
@@ -364,6 +442,10 @@ function Profile() {
           </form>
         </div>
       </div>
+      )}
+
+      {/* Linked Accounts */}
+      <GoogleAccountSection />
 
       {/* Two-Factor Authentication */}
       <MfaSettings />
