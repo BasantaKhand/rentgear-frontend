@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Captcha from '../components/common/Captcha';
 import PasswordStrengthMeter from '../components/common/PasswordStrengthMeter';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import { isStrongEnough } from '../utils/passwordStrength';
 import { isValidEmail, isValidPhone, isValidName } from '../utils/validators';
 import { getErrorMessage } from '../utils/getErrorMessage';
@@ -240,12 +241,7 @@ function Register() {
 
         <div className="form-divider">or sign up with</div>
         <div className="social-login">
-          <button type="button" className="social-btn">
-            <span>G</span> Google
-          </button>
-          <button type="button" className="social-btn">
-            <span>&#63743;</span> Apple
-          </button>
+          <GoogleSignInButton label="Sign up with Google" />
         </div>
 
         <p
