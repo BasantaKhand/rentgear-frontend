@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Captcha from '../components/common/Captcha';
-import OtpInput from '../components/common/OtpInput';
+import MfaLogin from '../components/common/MfaLogin';
+import GoogleSignInButton from '../components/common/GoogleSignInButton';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { setAccessToken, setCsrfToken, refreshSession } from '../services/api';
 
 function Login() {
-  const { login, verifyOtp, resendOtp } = useAuth();
+  const { login, updateUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const from = location.state?.from || '/';
 
   const [form, setForm] = useState({ email: '', password: '' });
@@ -23,10 +26,65 @@ function Login() {
   const [captchaReload, setCaptchaReload] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
 
-  // MFA (OTP) step state
+  // MFA step state
   const [mfaStep, setMfaStep] = useState(false);
+  const [mfaMethod, setMfaMethod] = useState('email'); // 'email' | 'totp'
   const [mfaEmail, setMfaEmail] = useState('');
-  const [otpSubmitting, setOtpSubmitting] = useState(false);
+
+  // Handle Google OAuth callback (redirect returns with query params)
+  useEffect(() => {
+    const googleSuccess = searchParams.get('google_success');
+    const accessToken = searchParams.get('access_token');
+    const csrfToken = searchParams.get('csrf_token');
+    const mfaRequired = searchParams.get('mfa_required');
+    const mfaMethodParam = searchParams.get('mfa_method');
+    const emailParam = searchParams.get('email');
+    const error = searchParams.get('error');
+
+    // Clean URL params
+    if (googleSuccess || mfaRequired || error) {
+      const url = new URL(window.location);
+      url.search = '';
+      window.history.replaceState({}, '', url.toString());
+    }
+
+    if (error) {
+      const messages = {
+        oauth_failed: 'Google sign-in failed. Please try again.',
+        no_email: 'Could not get email from Google account.',
+        account_disabled: 'Your account has been disabled.',
+      };
+      toast.error(messages[error] || 'Sign-in failed.');
+      return;
+    }
+
+    if (googleSuccess && accessToken) {
+      setAccessToken(accessToken);
+      if (csrfToken) setCsrfToken(csrfToken);
+      // Restore user from session
+      refreshSession()
+        .then((data) => {
+          if (updateUser) updateUser(data.user);
+          toast.success('Welcome back!');
+          navigate(from, { replace: true });
+        })
+        .catch(() => {
+          toast.error('Session could not be established. Please try again.');
+        });
+      return;
+    }
+
+    if (mfaRequired === 'true' && emailParam) {
+      setMfaEmail(decodeURIComponent(emailParam));
+      setMfaMethod(mfaMethodParam || 'email');
+      setMfaStep(true);
+      toast.success(
+        mfaMethodParam === 'totp'
+          ? 'Enter the code from your authenticator app'
+          : 'Enter the code sent to your email'
+      );
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -57,11 +115,16 @@ function Login() {
         payload.captchaAnswer = captcha.answer;
       }
       const res = await login(payload);
-      // Two-factor enabled: move to the OTP step instead of logging in.
+      // Two-factor enabled: move to the MFA step.
       if (res?.mfaRequired) {
         setMfaEmail(res.email || form.email);
+        setMfaMethod(res.mfaMethod || 'email');
         setMfaStep(true);
-        toast.success('Enter the code sent to your email');
+        if (res.mfaMethod === 'totp') {
+          toast.success('Enter the code from your authenticator app');
+        } else {
+          toast.success('Enter the code sent to your email');
+        }
         return;
       }
       toast.success('Welcome back!');
@@ -70,17 +133,15 @@ function Login() {
       const data = err.response?.data;
       const status = err.response?.status;
 
-      // Reveal the CAPTCHA whenever the server says it's needed.
       if (data?.captchaRequired) {
         setCaptchaRequired(true);
-        setCaptchaReload((n) => n + 1); // force a fresh challenge
+        setCaptchaReload((n) => n + 1);
       }
 
       if (err.rateLimited) {
         if (err.retryAfterSeconds) setLockSeconds(err.retryAfterSeconds);
         toast.error(err.friendlyMessage);
       } else if (status === 423) {
-        // Account locked — start a countdown if we can compute it.
         if (data?.lockUntil) {
           const secs = Math.max(
             Math.ceil((new Date(data.lockUntil).getTime() - Date.now()) / 1000),
@@ -106,70 +167,25 @@ function Login() {
     }
   };
 
-  const handleOtpSubmit = async (code) => {
-    if (otpSubmitting) return;
-    setOtpSubmitting(true);
-    try {
-      await verifyOtp(mfaEmail, code);
-      toast.success('Welcome back!');
-      navigate(from, { replace: true });
-    } catch (err) {
-      toast.error(getErrorMessage(err, 'Invalid or expired code'));
-    } finally {
-      setOtpSubmitting(false);
-    }
-  };
-
-  const handleResend = async () => {
-    try {
-      await resendOtp(mfaEmail);
-      toast.success('A new code has been sent');
-    } catch {
-      toast.error('Could not resend code. Please wait a moment.');
-    }
+  const handleMfaSuccess = () => {
+    toast.success('Welcome back!');
+    navigate(from, { replace: true });
   };
 
   const locked = lockSeconds > 0;
 
-  // Step 2: OTP entry screen
+  // Step 2: MFA verification (handles both TOTP and email)
   if (mfaStep) {
     return (
-      <div className="main-content">
-        <div className="form-card">
-          <div className="form-header">
-            <div className="logo" style={{ justifyContent: 'center', marginBottom: '24px' }}>
-              <div className="logo-icon">R</div>
-              RentGear
-            </div>
-            <h2>Two-factor verification</h2>
-            <p>Enter the 6-digit code sent to your email</p>
-          </div>
-
-          <OtpInput
-            onSubmit={handleOtpSubmit}
-            onResend={handleResend}
-            submitting={otpSubmitting}
-          />
-
-          <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '14px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setMfaStep(false);
-                setForm((f) => ({ ...f, password: '' }));
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-              }}
-            >
-              ← Back to login
-            </button>
-          </p>
-        </div>
-      </div>
+      <MfaLogin
+        email={mfaEmail}
+        mfaMethod={mfaMethod}
+        onSuccess={handleMfaSuccess}
+        onBack={() => {
+          setMfaStep(false);
+          setForm((f) => ({ ...f, password: '' }));
+        }}
+      />
     );
   }
 
@@ -280,12 +296,7 @@ function Login() {
 
         <div className="form-divider">or continue with</div>
         <div className="social-login">
-          <button type="button" className="social-btn">
-            <span>G</span> Google
-          </button>
-          <button type="button" className="social-btn">
-            <span>&#63743;</span> Apple
-          </button>
+          <GoogleSignInButton label="Sign in with Google" />
         </div>
 
         <p
