@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -30,9 +31,10 @@ import NotFound from './pages/NotFound';
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
+      <AuthProvider>
+        <CartProvider>
+          <BrowserRouter>
           <div className="app-container">
             <Navbar />
             <Routes>
@@ -130,6 +132,7 @@ function App() {
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 
