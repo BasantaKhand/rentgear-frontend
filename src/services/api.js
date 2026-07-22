@@ -24,11 +24,19 @@ const api = axios.create({
   withCredentials: true, // send/receive the httpOnly refresh cookie
 });
 
-// Attach the in-memory access token
+// Attach the in-memory access token, and the CSRF token on state-changing
+// requests. The server enforces a double-submit CSRF check on mutating
+// endpoints (VULN-2 fix), so POST/PUT/PATCH/DELETE must echo the token that
+// matches the csrfToken cookie.
+const MUTATING_METHODS = ['post', 'put', 'patch', 'delete'];
 api.interceptors.request.use(
   (config) => {
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+    const method = (config.method || 'get').toLowerCase();
+    if (csrfToken && MUTATING_METHODS.includes(method)) {
+      config.headers['X-CSRF-Token'] = csrfToken;
     }
     return config;
   },
