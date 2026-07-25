@@ -2,7 +2,14 @@ import axios from 'axios';
 
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Access token is kept in memory only (not localStorage) for security.
+// Token storage strategy (pentest VULN-5 — Info / by design, reviewed & accepted):
+// - The access token is kept in memory only (NOT localStorage), so it is not
+//   readable by XSS-injected scripts and is cleared on tab close.
+// - The refresh token lives in an httpOnly, Secure, SameSite=strict cookie and
+//   is never exposed to JavaScript.
+// - The access token is short-lived (15 min) to limit the exposure window.
+// This is stronger than the common "JWT in localStorage" SPA pattern; even that
+// baseline would be acceptable given the short expiry, so no change is required.
 let accessToken = null;
 export const setAccessToken = (t) => {
   accessToken = t;
