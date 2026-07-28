@@ -1,11 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // Six-box OTP entry with auto-advance, paste support, auto-submit on completion,
-// an expiry countdown, and a resend link with a 60s cooldown.
-function OtpInput({ onSubmit, onResend, submitting = false, expirySeconds = 300 }) {
+// an expiry countdown, and a resend link with a short cooldown.
+function OtpInput({
+  onSubmit,
+  onResend,
+  submitting = false,
+  expirySeconds = 300,
+  resendCooldown = 15,
+}) {
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [expiry, setExpiry] = useState(expirySeconds);
-  const [cooldown, setCooldown] = useState(60);
+  const [cooldown, setCooldown] = useState(resendCooldown);
   const inputs = useRef([]);
 
   // Expiry countdown
@@ -63,7 +69,7 @@ function OtpInput({ onSubmit, onResend, submitting = false, expirySeconds = 300 
   const resend = async () => {
     if (cooldown > 0) return;
     await onResend?.();
-    setCooldown(60);
+    setCooldown(resendCooldown);
     setExpiry(expirySeconds);
     setDigits(['', '', '', '', '', '']);
     inputs.current[0]?.focus();
