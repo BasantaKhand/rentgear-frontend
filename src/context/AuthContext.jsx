@@ -88,10 +88,18 @@ export function AuthProvider({ children }) {
 
   const resendOtp = (email) => api.post('/auth/mfa/resend', { email });
 
-  // MFA settings (authenticated). Enable/disable send an OTP; verifyMfaSetup
-  // confirms it.
-  const enableMfa = (password) => api.post('/auth/mfa/enable', { password });
-  const disableMfa = (password) => api.post('/auth/mfa/disable', { password });
+  // MFA settings (authenticated). Email OTP enable/disable only needs the
+  // password — no emailed confirmation code.
+  const enableMfa = async (password) => {
+    const { data } = await api.post('/auth/mfa/enable', { password });
+    if (user) setUser({ ...user, mfaEnabled: true, mfaMethod: 'email' });
+    return data;
+  };
+  const disableMfa = async (password) => {
+    const { data } = await api.post('/auth/mfa/disable', { password });
+    if (user) setUser({ ...user, mfaEnabled: false, mfaMethod: 'none' });
+    return data;
+  };
   const verifyMfaSetup = async (otp) => {
     const { data } = await api.post('/auth/mfa/verify', { otp });
     if (user) setUser({ ...user, mfaEnabled: data.mfaEnabled });
