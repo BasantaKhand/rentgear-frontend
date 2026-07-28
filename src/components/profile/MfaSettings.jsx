@@ -4,14 +4,13 @@ import { ShieldCheck, ShieldOff, Smartphone, Mail } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
-import OtpInput from '../common/OtpInput';
 import TotpSetup from './TotpSetup';
 import BackupCodes from './BackupCodes';
 import { getErrorMessage } from '../../utils/getErrorMessage';
 import api from '../../services/api';
 
 function MfaSettings() {
-  const { user, enableMfa, disableMfa, verifyMfaSetup, updateUser } = useAuth();
+  const { user, enableMfa, disableMfa, updateUser } = useAuth();
   const mfaMethod = user?.mfaMethod || 'none';
   const enabled = mfaMethod !== 'none';
 
@@ -45,30 +44,16 @@ function MfaSettings() {
     if (busy || !password) return;
     setBusy(true);
     try {
-      if (action === 'enable-email') await enableMfa(password);
-      else await disableMfa(password);
-      toast.success('A confirmation code was sent to your email');
-      setPhase('otp');
-    } catch (err) {
-      toast.error(getErrorMessage(err, 'Password confirmation failed'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitEmailOtp = async (code) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await verifyMfaSetup(code);
-      toast.success(
-        action === 'enable-email'
-          ? 'Email two-factor authentication enabled'
-          : 'Two-factor authentication disabled'
-      );
+      if (action === 'enable-email') {
+        await enableMfa(password);
+        toast.success('Email OTP enabled');
+      } else {
+        await disableMfa(password);
+        toast.success('Email OTP disabled');
+      }
       closeEmail();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Invalid or expired code'));
+      toast.error(getErrorMessage(err, 'Password confirmation failed'));
     } finally {
       setBusy(false);
     }
@@ -115,7 +100,7 @@ function MfaSettings() {
       if (updateUser && user) {
         updateUser({ ...user, mfaEnabled: true, mfaMethod: 'totp', totpEnabled: true });
       }
-      toast.success('Authenticator app enabled!');
+      toast.success('Authenticator app enabled!', { duration: 2000 });
     } catch (err) {
       toast.error(getErrorMessage(err, 'Invalid code. Check your authenticator app.'));
     } finally {
@@ -283,15 +268,14 @@ function MfaSettings() {
           <>
             <Button variant="secondary" onClick={closeEmail}>Cancel</Button>
             <Button variant="primary" onClick={submitEmailPassword} disabled={busy || !password}>
-              {busy ? 'Sending code...' : 'Continue'}
+              {busy ? 'Confirming...' : action === 'enable-email' ? 'Enable' : 'Disable'}
             </Button>
           </>
         }
       >
         <form onSubmit={submitEmailPassword}>
           <p style={{ marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-            Confirm your password to {action === 'enable-email' ? 'enable' : 'disable'} email
-            OTP. We'll send a code to confirm.
+            Confirm your password to {action === 'enable-email' ? 'enable' : 'disable'} email OTP.
           </p>
           <div className="form-group">
             <label htmlFor="mfa-email-password">Password</label>
@@ -305,14 +289,6 @@ function MfaSettings() {
             />
           </div>
         </form>
-      </Modal>
-
-      {/* Email OTP: code confirmation modal */}
-      <Modal isOpen={phase === 'otp'} onClose={closeEmail} title="Enter Verification Code">
-        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center' }}>
-          Enter the 6-digit code sent to your email.
-        </p>
-        <OtpInput onSubmit={submitEmailOtp} submitting={busy} onResend={null} />
       </Modal>
 
       {/* TOTP: password confirmation modal */}
